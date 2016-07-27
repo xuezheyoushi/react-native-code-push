@@ -115,7 +115,11 @@ public class CodePushUpdateUtils {
         }
     }
 
-    public static void verifyHashForDiffUpdate(String folderPath, String expectedHash) {
+    // Hashing algorithm:
+    // 1. Recursively generate a sorted JSON list of format <relativeFilePath>: <sha256FileHash>
+    // 2. SHA256-hash the list
+    public static void verifyFolderSignature(String folderPath, String expectedHash) {
+        CodePushUtils.log("Verifying signature for folder path: " + folderPath);
         ArrayList<String> updateContentsManifest = new ArrayList<>();
         addContentsOfFolderToManifest(folderPath, "", updateContentsManifest);
         Collections.sort(updateContentsManifest);
@@ -127,6 +131,8 @@ public class CodePushUpdateUtils {
         // The JSON serialization turns path separators into "\/", e.g. "CodePush\/assets\/image.png"
         String updateContentsManifestString = updateContentsJSONArray.toString().replace("\\/", "/");
         String updateContentsManifestHash = computeHash(new ByteArrayInputStream(updateContentsManifestString.getBytes()));
+
+        CodePushUtils.log("Expected hash: " + expectedHash + ", actual hash: " + updateContentsManifestHash);
         if (!expectedHash.equals(updateContentsManifestHash)) {
             throw new CodePushInvalidUpdateException("The update contents failed the data integrity check.");
         }
