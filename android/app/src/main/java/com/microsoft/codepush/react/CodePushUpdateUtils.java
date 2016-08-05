@@ -116,8 +116,9 @@ public class CodePushUpdateUtils {
     }
 
     // Hashing algorithm:
-    // 1. Recursively generate a sorted JSON list of format <relativeFilePath>: <sha256FileHash>
-    // 2. SHA256-hash the list
+    // 1. Recursively generate a sorted array of format <relativeFilePath>: <sha256FileHash>
+    // 2. JSON stringify the array
+    // 3. SHA256-hash the result
     public static void verifyFolderSignature(String folderPath, String expectedHash) {
         CodePushUtils.log("Verifying signature for folder path: " + folderPath);
         ArrayList<String> updateContentsManifest = new ArrayList<>();
@@ -130,6 +131,8 @@ public class CodePushUpdateUtils {
 
         // The JSON serialization turns path separators into "\/", e.g. "CodePush\/assets\/image.png"
         String updateContentsManifestString = updateContentsJSONArray.toString().replace("\\/", "/");
+        CodePushUtils.log("Manifest string: " + updateContentsManifestString);
+
         String updateContentsManifestHash = computeHash(new ByteArrayInputStream(updateContentsManifestString.getBytes()));
 
         CodePushUtils.log("Expected hash: " + expectedHash + ", actual hash: " + updateContentsManifestHash);
