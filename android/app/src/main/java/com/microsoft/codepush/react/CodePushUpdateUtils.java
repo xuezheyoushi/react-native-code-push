@@ -18,7 +18,31 @@ import java.security.NoSuchAlgorithmException;
 import java.util.ArrayList;
 import java.util.Collections;
 
+
+import android.util.Base64;
+
+import com.auth0.jwt.JWTVerifier;
+import com.auth0.jwt.pem.X509CertUtils;
+
+import java.security.KeyFactory;
+import java.security.PublicKey;
+import java.security.spec.X509EncodedKeySpec;
+import java.util.Map;
+
 public class CodePushUpdateUtils {
+    // Note: The hashing logic here must mirror the hashing logic in other native SDK's, as well as in the
+    // CLI. Ensure that any changes here are propagated to these other locations.
+    public static boolean isHashIgnored(String relativeFilePath) {
+        final String __MACOSX = "__MACOSX/";
+        final String DS_STORE = ".DS_Store";
+        final String CODEPUSH_METADATA = ".codepushrelease";
+
+        return relativeFilePath.startsWith(__MACOSX)
+                || relativeFilePath.equals(DS_STORE)
+                || relativeFilePath.endsWith("/" + DS_STORE)
+                || relativeFilePath.equals(CODEPUSH_METADATA)
+                || relativeFilePath.endsWith("/" + CODEPUSH_METADATA);
+    }
 
     private static void addContentsOfFolderToManifest(String folderPath, String pathPrefix, ArrayList<String> manifest) {
         File folder = new File(folderPath);
@@ -26,6 +50,11 @@ public class CodePushUpdateUtils {
         for (File file : folderFiles) {
             String fullFilePath = file.getAbsolutePath();
             String relativePath = (pathPrefix.isEmpty() ? "" : (pathPrefix + "/")) + file.getName();
+
+            if (CodePushUpdateUtils.isHashIgnored(relativePath)) {
+                continue;
+            }
+
             if (file.isDirectory()) {
                 addContentsOfFolderToManifest(fullFilePath, relativePath, manifest);
             } else {
@@ -119,8 +148,8 @@ public class CodePushUpdateUtils {
     // 1. Recursively generate a sorted array of format <relativeFilePath>: <sha256FileHash>
     // 2. JSON stringify the array
     // 3. SHA256-hash the result
-    public static void verifyFolderSignature(String folderPath, String expectedHash) {
-        CodePushUtils.log("Verifying signature for folder path: " + folderPath);
+    public static void verifyFolderHash(String folderPath, String expectedHash) {
+        CodePushUtils.log("Verifying hash for folder path: " + folderPath);
         ArrayList<String> updateContentsManifest = new ArrayList<>();
         addContentsOfFolderToManifest(folderPath, "", updateContentsManifest);
         Collections.sort(updateContentsManifest);
@@ -140,4 +169,86 @@ public class CodePushUpdateUtils {
             throw new CodePushInvalidUpdateException("The update contents failed the data integrity check.");
         }
     }
+
+    // How should the public key be stored? As a string, .cer, other?
+        // - How do we sign app store releases?
+    // Where should the integrity hook be instrumented? Native, JS? If native, what kind of API surface, and how does this compare to JS?
+        // - How does rnpm hooks work?
+    // Where should the jwt be stored? Should I add a server field that can be round-tripped?
+    public static Map<String, Object> verifyJWT(String jwt, PublicKey publicKey) {
+        try {
+            final JWTVerifier verifier = new JWTVerifier(publicKey);
+            final Map<String, Object> claims = verifier.verify(jwt);
+            CodePushUtils.log("JWT verification succeeded:\n" + claims.toString());
+            return claims;
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
+    public static PublicKey getPublicKey() {
+        try {
+            // final PublicKey publicKey = X509CertUtils.parse(
+            // ).getPublicKey();
+            String stringKey = "-----BEGIN PUBLIC KEY-----\n" +
+                        "MIGfMA0GCSqGSIb3DQEBAQUAA4GNADCBiQKBgQCXssUrApjU2tifOTcN18tufCIJ\n" +
+                            "kPlvBvul+n4VbSUixJ21DZzpVd4mNhKw54dKI6j5TF5xvwAcrCoeJwFR2pKKZJN2\n" +
+                            "mbUv6TMatNHCXsTctrJv+zvi0JjPF59DdCwP1CPe4m/c2N4wH+3pMUQvR4bM+q6R\n" +
+                            "GXyD4f2846NDHTUrrwIDAQAB\n" +
+                            "-----END PUBLIC KEY-----";
+            stringKey = stringKey.replace("-----BEGIN PUBLIC KEY-----\n", "");
+            stringKey = stringKey.replace("-----END PUBLIC KEY-----", "");
+            byte[] byteKey = Base64.decode(stringKey.getBytes(), Base64.DEFAULT);
+            X509EncodedKeySpec X509Key = new X509EncodedKeySpec(byteKey);
+            KeyFactory kf = KeyFactory.getInstance("RSA");
+
+            return kf.generatePublic(X509Key);
+        } catch (Exception e) {
+            CodePushUtils.log(e.getMessage());
+            CodePushUtils.log(e.getStackTrace().toString());
+            return null;
+        }
+    }
+
+    public static String getSignature(String folderPath) {
+        final String signatureFilePath = CodePushUtils.appendPathComponent(
+                CodePushUtils.appendPathComponent(folderPath, CodePushConstants.CODE_PUSH_FOLDER_PREFIX),
+                ".codepushrelease"
+        );
+
+        try {
+            return FileUtils.readFileToString(signatureFilePath);
+        } catch (IOException e) {
+            CodePushUtils.log(e.getMessage());
+            CodePushUtils.log(e.getStackTrace().toString());
+            return null;
+        }
+    }
+
+    public static void verifySignature(String folderPath) throws CodePushInvalidUpdateException {
+        CodePushUtils.log("Verifying signature for folder path: " + folderPath);
+
+        final PublicKey publicKey = getPublicKey();
+        if (publicKey == null) {
+            throw new CodePushInvalidUpdateException("The update could not be verified because no certificate was found.");
+        }
+
+        final String signature = getSignature(folderPath);
+        if (signature == null) {
+            throw new CodePushInvalidUpdateException("The update could not be verified because no signature was found.");
+        }
+
+        final Map<String, Object> claims = CodePushUpdateUtils.verifyJWT(signature, publicKey);
+        if (claims == null) {
+            throw new CodePushInvalidUpdateException("The update could not be verified because it was not signed by a trusted party.");
+        }
+
+        final String contentHash = (String)claims.get("contentHash");
+        if (contentHash == null) {
+            throw new CodePushInvalidUpdateException("The update could not be verified because the signature did not specify a content hash.");
+        }
+
+        CodePushUpdateUtils.verifyFolderHash(folderPath, contentHash);
+    }
+
 }
