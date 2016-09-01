@@ -172,6 +172,8 @@ public class CodePushUpdateUtils {
 
     // How should the public key be stored? As a string, .cer, other?
         // - How do we sign app store releases?
+        // http://stackoverflow.com/questions/12387637/how-to-access-file-under-assets-folder
+        // https://developer.android.com/studio/projects/index.html
     // Where should the integrity hook be instrumented? Native, JS? If native, what kind of API surface, and how does this compare to JS?
         // - How does rnpm hooks work?
     // Where should the jwt be stored? Should I add a server field that can be round-tripped?

@@ -6,6 +6,7 @@ import java.io.File;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.util.zip.ZipEntry;
@@ -101,12 +102,22 @@ public class FileUtils {
 
     public static String readFileToString(String filePath) throws IOException {
         FileInputStream fin = null;
-        BufferedReader reader = null;
         try {
             File fl = new File(filePath);
             fin = new FileInputStream(fl);
-            reader = new BufferedReader(new InputStreamReader(fin));
-            StringBuilder sb = new StringBuilder();
+
+            return FileUtils.readInputStreamToString(fin);
+        } finally {
+            if (fin != null) fin.close();
+        }
+    }
+
+    public static String readInputStreamToString(InputStream stream) throws IOException {
+        BufferedReader reader = null;
+
+        try {
+            reader = new BufferedReader(new InputStreamReader(stream));
+            StringBuilder sb = new StringBuilder(stream.available());
             String line = null;
             while ((line = reader.readLine()) != null) {
                 sb.append(line).append("\n");
@@ -115,7 +126,6 @@ public class FileUtils {
             return sb.toString();
         } finally {
             if (reader != null) reader.close();
-            if (fin != null) fin.close();
         }
     }
 

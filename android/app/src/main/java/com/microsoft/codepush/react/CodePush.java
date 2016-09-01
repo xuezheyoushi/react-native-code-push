@@ -17,6 +17,8 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
+import java.security.PublicKey;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.zip.ZipEntry;
@@ -24,10 +26,11 @@ import java.util.zip.ZipFile;
 
 public class CodePush implements ReactPackage {
 
+    private static String sAppVersion = null;
     private static boolean sIsRunningBinaryVersion = false;
     private static boolean sNeedToReportRollback = false;
+    private static String sPublicKeyAssetName = null;
     private static boolean sTestConfigurationFlag = false;
-    private static String sAppVersion = null;
 
     private boolean mDidUpdate = false;
 
@@ -74,6 +77,14 @@ public class CodePush implements ReactPackage {
 
         clearDebugCacheIfNeeded();
         initializeUpdateAfterRestart();
+
+        CodePush.setPublicKey("codepush_rsa.pub");
+        try {
+            InputStream inputStream = this.mContext.getAssets().open(sPublicKeyAssetName);
+            CodePushUtils.log(FileUtils.readInputStreamToString(inputStream));
+        } catch (Exception e) {
+            CodePushUtils.log(e.getMessage());
+        }
     }
 
     public CodePush(String deploymentKey, Context context, boolean isDebugMode, String serverUrl) {
@@ -251,6 +262,10 @@ public class CodePush implements ReactPackage {
 
     public static void overrideAppVersion(String appVersionOverride) {
         sAppVersion = appVersionOverride;
+    }
+
+    public static void setPublicKey(String publicKeyAssetName) {
+        sPublicKeyAssetName = publicKeyAssetName;
     }
 
     private void rollbackPackage() {
