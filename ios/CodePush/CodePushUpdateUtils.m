@@ -1,4 +1,5 @@
 #import "CodePush.h"
+#import "JWT.h"
 #include <CommonCrypto/CommonDigest.h>
 
 @implementation CodePushUpdateUtils
@@ -235,6 +236,35 @@ NSString * const ManifestFolderPrefix = @"CodePush";
     } else {
         return nil;
     }
+}
+
+
++ (BOOL)verifySignature:(NSString *)updateFolderPath
+                  error:(NSError **)error
+{
+    NSString *publicKey = @"-----BEGIN PUBLIC KEY-----\n"
+    @"MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAulC0J6+J9PBoTKRfqz84\n"
+    @"ajFTnEcumLsrr3gBvNM8SCFry2robTzXyoQ4KOd29p14jR/VyPTd9XGiNM4Aulpi\n"
+    @"COuPpkk7x+Ocreyw7l6YtzVEiaJNsB3KFzqb4P1dXi1vqYAjflpmNAAEHyEILTru\n"
+    @"zojoaB4RdFrqAcUCoyr3S3Oamj5hG+zKY9zinvKa/xy2zcD8xE6eTNsXbWJvTdcg\n"
+    @"APfN5OoziHNT10Dk8ZawdXqxwIVmAB5BUZdCc0Vi8Mn/tAtnjuTY6T+Acfg/knEi\n"
+    @"n26HXLhqYRKaJpstGL/IJ1QLPW6AKwP7tmVQ0Eef6FzNyOYY13cazoi4UBUeFdU4\n"
+    @"qQIDAQAB\n"
+    @"-----END PUBLIC KEY-----";
+
+    
+    NSString *token = @"eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJjbGFpbVZlcnNpb24iOiIxLjAuMCIsImNvbnRlbnRIYXNoIjoiNTQ2ODRiNjAyN2EwYTU5MDRmYTg4NzY1MTg2NGM5ZDM1ZTRjYTViZjU4M2EyYTY0YzcyNGU4ZjA1YmUxMWEzZiIsImlhdCI6MTQ3MzE3OTA3OX0.sJWUt7DUtm_CDcbQb0NDnsJ79ILRnHFvLLTYy63jFiqt-Y-gJCnlUDW9vrtEraw3qUY-R-5_XA0BehK-Nn90iwUMRwhcwCRmTTEvTU2gO5O5jXfDn25C0Aol-SG0yCrp2lTN20ImxR_Z0FMhptQ3BF8qP7zPUJgQi70choBiGguqFxlT0k4wMQnqcDZebRKDNbfopfLy6M3WdE7Nn-RykXq0D9aEb8uzT-joGdIc_NbNKhRjATlwyWoxeNehu2q8xp_Yd29gkzfbN3UYaGw1fvC9Dy-ibDTVpUIjIpeVGJeKcP9H-vjxvXfAqweHS3HY76b4RGiG5LBJmffsTTq53w";
+    
+    JWTBuilder *jwtDecoder = [JWTBuilder decodeMessage:token].secret(publicKey).algorithmName(@"RS256");
+    
+    NSDictionary *claims = jwtDecoder.decode;
+    
+    if (jwtDecoder.jwtError) {
+        // error occurred.
+    }
+    
+    NSLog(@"%@", claims);
+    return YES;
 }
 
 + (BOOL)verifyHashForDiffUpdate:(NSString *)finalUpdateFolder

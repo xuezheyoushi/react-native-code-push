@@ -231,9 +231,12 @@ static NSString *const UnzippedFolderName = @"unzipped";
                                                             }
                                                         }
                                                         
-                                                        if (isDiffUpdate && ![CodePushUpdateUtils verifyHashForDiffUpdate:newUpdateFolderPath
-                                                                                                             expectedHash:newUpdateHash
-                                                                                                                    error:&error]) {
+                                                        if (isDiffUpdate) {
+                                                            
+                                                        }
+                                                        
+                                                        if (![CodePushUpdateUtils verifySignature:newUpdateFolderPath
+                                                                                            error:&error]) {
                                                             if (error) {
                                                                 failCallback(error);
                                                                 return;
