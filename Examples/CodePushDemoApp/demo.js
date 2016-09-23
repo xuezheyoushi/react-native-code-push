@@ -82,7 +82,7 @@ class CodePushDemoApp extends Component {
     return (
       <View style={styles.container}>
         <Text style={styles.welcome}>
-          Welcome to CodePush! v7
+          Welcome to CodePush! v8
         </Text>
         <TouchableOpacity onPress={this.sync.bind(this)}>
           <Text style={styles.syncButton}>Start Sync!</Text>
