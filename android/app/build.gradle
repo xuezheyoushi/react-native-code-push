@@ -21,6 +21,6 @@ android {
 }
 
 dependencies {
-    compile "com.facebook.react:react-native:+"
+    compile project(':ReactAndroid')
     compile 'com.nimbusds:nimbus-jose-jwt:5.1'
 }
